@@ -1,4 +1,4 @@
-# HTB Academy — Skills Assessment: Authentication
+# HTB Academy — Skills Assessment: Broken Authentication
 
 **Platform:** Hack The Box Academy  
 **Category:** Web Security / Authentication  
